@@ -1,0 +1,347 @@
+---
+title: "Project 4 based on Acemoglou and Angrist (2000, NBER)"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+---
+# Work Group 7
+## Members of Group
+- _Sèdjro AKONAKPO_
+- _Emmanuela KOOVI_
+- _Loukmane BOULANKI_
+- _Nathanaël KOFFI_
+
+# Subject
+
+This [project](https://ametice.univ-amu.fr/mod/resource/view.php?id=3237841) is based on __Acemoglou, D. and J. Angrist (2000)__, _"How Large Are Human-Capital Externalities? Evidence from Compulsory Schooling Laws"_, NBER Macroeconomics Annual, 15, 9-59. 
+You can click on [here](https://ametice.univ-amu.fr/mod/resource/view.php?id=3237843) to read this article.
+
+# Preliminaries
+
+```{r}
+library(tidyverse)
+library(haven)      # for: import or export Stata, SPSSS or SAS files
+library(sandwich)   # for: vcovCL
+library("AER")      # for: ivreg
+library("lmtest")   # for: coeftest
+library(stargazer)  # for: well-formatted the tables of regressions 
+library("ipumsr")
+library(pander)
+```
+
+# Question 1. Explanation of the research design of the paper. 
+
+__The main idea of the research in this article is to assess the effects of human capital externalities, particularly educational attainment, on aggregate incomes.__ They focus on the question of whether education has significant and measurable effects on the productivity and aggregate incomes of individuals, using __compulsory schooling and labor laws__ as instruments to solve the endogeneity problem that arises. This makes estimation by Ordinary Least Squares (OLS) subject to bias.
+
+In fact, OLS is likely to be invalid because there is a risk of correlation between the "State average education" variable and the error term, due to the omission of certain variables (Biased OLS results).
+
+To solve this problem, ACEMOGLU and ANGRIST (2000) use **Double Least Squares method** using instrumental variables (Compulsory Schooling Laws(CSL)) based on 05 types of restrictions on access to education and work. These laws have a direct impact on __individuals education__, but are not directly correlated with aggregate incomes or with the error term.
+
+The credibility of this instrumental variable strategy depends on a number of factors, including the suitability of the instruments chosen. In this case, the use of compulsory schooling laws is generally considered sound, as they can potentially satisfy the criteria of exogeneity and relevance.
+
+Indeed, the effectiveness of the instruments depends on the fundamental assumption in econometrics called, which stipulates that the instrument ( __CSL__) must be correlated with the endogenous variable (here, _individuals education (indEduc)_) but not with the __error term__.
+
+# Question 2. Replication Tasks
+
+
+```{r}
+path= "C:/Users/sedjr/Desktop/Romulus/Documents/Marrseille/Aix-Marseille School of Economy/Cours Mag 1 - Romulus 2023/Applied Econometrics - Christian Schluter/__MACOSX/"
+
+child_labor <- read_dta(paste(path,"AA_small.dta", sep=""))
+child_labor %>% 
+  mutate(year = factor(year),
+         yob_fct = factor(yob),
+         sob = factor(sob)) -> child_labor
+str(child_labor)
+```
+
+## Q2-1. Replicating of the first OLS Benchmark reported in AA 2000
+
+![OLS Estimates of Private & External return to schooling](C:/Users/sedjr/Desktop/Romulus/Documents/Marrseille/Aix-Marseille School of Economy/Cours Mag 1 - Romulus 2023/Applied Econometrics - Christian Schluter/OLS Estimates Q2-1.png)
+
+```{r}
+reg1.ols <- lm(lnwkwage ~ year + yob_fct + sob, weights=sample5090, data=child_labor)
+reg1b.ols <- lm(lnwkwage ~ year + yob_fct + sob + avgEduc , weights=sample5090, data=child_labor)
+
+reg2.ols <- lm(lnwkwage ~ year + yob_fct + sob + indEduc, weights=sample5090, data=child_labor)
+
+
+robust.se1 <- sqrt(diag(vcovCL(reg1.ols, cluster = ~ year, type = "HC1")))
+
+robust.se1b = sqrt(diag(vcovCL(reg1b.ols, cluster= ~ year,type="HC1")))
+robust.se2 = sqrt(diag(vcovCL(reg2.ols, cluster= ~ year,type="HC1")))
+
+stargazer(reg1.ols,reg1b.ols,reg2.ols,
+          dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          keep=c("indEduc"),
+          header=FALSE,
+          se= list(robust.se1,robust.se1b),
+          title="AA 2000 Table 2 column3 OLS Estimates", type="text"
+) 
+```
+
+## Q2-2. Replicating of the summary table
+
+![Q2-2](C:/Users/sedjr/Desktop/Romulus/Documents/Marrseille/Aix-Marseille School of Economy/Cours Mag 1 - Romulus 2023/Applied Econometrics - Christian Schluter/Q2-2.png)
+
+- __For Panel A__
+
+```{r}
+reg2_1a.ols <- lm(indEduc ~year+sob+yob_fct+ cl7+cl8+cl9,weights=sample5090, data=child_labor)
+reg2_2a.ols <- lm(indEduc ~year+sob+yob_fct+sob:yob+ cl7+cl8+cl9+avgEduc,weights=sample5090, data=child_labor)
+
+reg2_3a.ols <- lm(lnwkwage ~ year+sob+yob_fct + cl7+cl8+cl9 , weights=sample5090, data=child_labor)
+reg2_4a.ols <- lm(lnwkwage ~ year+sob+yob_fct+sob:yob+ cl7+cl8+cl9
+                 ,weights=sample5090, data=child_labor)
+
+robust.se2_1a = sqrt(diag(vcovCL(reg2_1a.ols, cluster= ~ sob,type="HC1")))
+robust.se2_2a = sqrt(diag(vcovCL(reg2_2a.ols, cluster= ~ sob,type="HC1")))
+robust.se2_3a = sqrt(diag(vcovCL(reg2_3a.ols, cluster= ~ sob,type="HC1")))
+robust.se2_4a = sqrt(diag(vcovCL(reg2_4a.ols, cluster= ~ sob,type="HC1")))
+
+stargazer(reg2_1a.ols,reg2_2a.ols,reg2_3a.ols,reg2_4a.ols,
+          dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          keep=c("cl7", "cl8","cl9"),
+          header=FALSE,
+          column.labels=c("OLS","OLS","OLS", "OLS"),
+          se= list(robust.se2_1a,robust.se2_2a,robust.se2_3a,robust.se2_4a),
+          title="Panel A : First stage and reduced form (clustered SEs)", type="text"
+)
+```
+
+- __Interpretation__
+
+In the 1950 to 1990 sample and without interaction, men born in states requiring 7 years, 8 years and 9 years of schooling respectively before working ended up with 0.166 years, 0.191 years and 0.400 years "year of schooling" respectively more than those born in a state requiring 6 years of schooling.  
+
+For the same sample but with interaction, men born in states requiring 8 and 9 years of schooling respectively before working ended up with 0.024 and 0.016 years of schooling respectively more than those born in states requiring 6 years of schooling. On the other hand, those born in a state where schooling was set at 7 years ended up with 0.024 fewer years of schooling than those born in a state where the law required 6 years of schooling. 
+
+
+On the other hand, without interaction, men born in states requiring respectively 7, 8 and 9 years of schooling before working ended up with 0.01%, 0.013% and 0.046% more on their monthly earnings than those born in a state requiring 6 years of schooling before working. 
+
+Taking interactions into account, men born in states requiring 8 and 9 years of education before working ended up with 0.005% and 0.008% more on their monthly income than those born in a state where the law required 6 years. Those born in states requiring 7 years of schooling ended up with 0.013% less income than those born in states requiring 6 years.
+
+- __For Panel B__
+
+```{r}
+reg2_1b.iv <- ivreg(lnwkwage ~ indEduc+ year+sob+yob_fct | year+sob+yob_fct +cl6+ cl7+cl8, weights =sample5090, data=child_labor)
+reg2_2b.iv <- ivreg(lnwkwage ~ indEduc+ year+sob+yob_fct + sob:yob  | year+sob+yob_fct + sob:yob +cl6+ cl7+cl8
+                  ,weights=sample5090, data=child_labor)
+
+robust.se2_1b = sqrt(diag(vcovCL(reg2_1b.iv, cluster= ~ sob,type="HC1")))
+robust.se2_2b = sqrt(diag(vcovCL(reg2_2b.iv, cluster= ~ sob,type="HC1")))
+
+stargazer(reg2_1b.iv,reg2_2b.iv,
+          dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          keep=c("indEduc"),
+          header=FALSE,
+          column.labels=c("IV", "IV"),
+          se= list(robust.se2_1b,robust.se2_2b),
+          title="Panel B : Second Stage Estimates (clustered SEs)", type="text"
+)
+```
+
+- __Interpretation__
+
+In the 1950 to 1990 sample, using instrumental variables relating to child labor laws (cl6 to cl8), there is a positive relationship between private returns to schooling and the logarithm of monthly wages for men in this sample.
+
+With no interaction between birth status and year of birth, a one-unit increase in returns leads to a 0.124% increase in wages.
+With interaction, a one-unit increase in output leads to a 0.399% increase in salary.
+
+## Q2-3. Subsample analysis: Replicating of AA2000 Tables 4 (cols 5-8) and table 6 
+
+![Q2-3](C:/Users/sedjr/Desktop/Romulus/Documents/Marrseille/Aix-Marseille School of Economy/Cours Mag 1 - Romulus 2023/Applied Econometrics - Christian Schluter/Q2-3.png)
+
+- __Table 4__
+
+```{r}
+reg2_3_1.ols <- lm(indEduc ~year+sob+yob_fct+ cl7+cl8+cl9 ,weights=sample6080, data=child_labor)
+reg2_3_2.ols <- lm(indEduc ~year+sob+yob_fct+ cl7+cl8+cl9,weights=sample5080, data=child_labor)
+
+reg2_3_3.ols <- lm(indEduc ~ year+sob+yob_fct + cl7+cl8+cl9, weights =sample5090, data=child_labor)
+reg2_3_4.ols <- lm(indEduc ~ sob+yob_fct+ cl7+cl8+cl9 +avgEduc, subset = (year == 1980), data=child_labor)
+
+robust.se1 = sqrt(diag(vcovCL(reg2_3_1.ols, cluster= ~ sob,type="HC1")))
+robust.se1b = sqrt(diag(vcovCL(reg2_3_2.ols, cluster= ~ sob,type="HC1")))
+robust.se2 = sqrt(diag(vcovCL(reg2_3_3.ols, cluster= ~ sob,type="HC1")))
+robust.se2b = sqrt(diag(vcovCL(reg2_3_4.ols, cluster= ~ sob,type="HC1")))
+
+stargazer(reg2_3_1.ols,reg2_3_2.ols,reg2_3_3.ols,reg2_3_4.ols,
+          dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          keep=c("cl7", "cl8","cl9"),
+          header=FALSE,
+          column.labels=c("1960-1980","1950-1980","1950-1990", "1980"),
+          se= list(robust.se1,robust.se1b,robust.se2,robust.se2b),
+          title="Table 4 : Without State of Residence Control AA2000 question 2.3", type="text"
+)
+```
+
+- __For table 6 (col 1-3) : IV estimation QoB__
+
+For qob variable, we have a missing value, so we replace this missing by 0.
+
+```{r}
+child_labor$qob[is.na(child_labor$qob)] <- 0
+reg2_3_1.iv <- ivreg(lnwkwage ~ indEduc+ year+sob+yob_fct  | qob:yob_fct+year+sob+yob_fct, weights =sample6080, data=child_labor)
+reg2_3_2.iv <- ivreg(lnwkwage ~ indEduc+sob+yob_fct  | qob:yob_fct+sob+yob_fct, subset =(year==1980), data=child_labor)
+reg2_3_3.iv <- ivreg(lnwkwage ~ indEduc+sob+yob_fct  | qob:yob_fct+sob+yob_fct , subset =(year==1960 | year ==1970), data=child_labor)
+
+robust.se2_3_1 = sqrt(diag(vcovCL(reg2_3_1.iv, cluster= ~ sob,type="HC1")))
+robust.se2_3_2 = sqrt(diag(vcovCL(reg2_3_2.iv, cluster= ~ sob,type="HC1")))
+robust.se2_3_3 = sqrt(diag(vcovCL(reg2_3_3.iv, cluster= ~ sob,type="HC1")))
+
+stargazer(reg2_3_1.iv,reg2_3_2.iv,reg2_3_3.iv,
+          dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          keep=c("indEduc"),
+          header=FALSE,
+          column.labels=c("1960-1980", "1980","1960-1970"),
+          se= list(robust.se2_3_1,robust.se2_3_2,robust.se2_3_3),
+          title="Table 6 : IV Estimation : QoB - No state of residence main effects", type="text"
+)
+```
+
+- __For table 6 (col 4 - 6) : IV Estimation SOB-CL__
+
+```{r}
+reg2_3_4.iv <- ivreg(lnwkwage ~ year+sob+yob_fct+indEduc|year+sob+yob_fct+ cl6+cl7+cl8,weights=sample6080, data=child_labor)
+reg2_3_5.iv <- ivreg(lnwkwage ~ year+sob+yob_fct+indEduc|year+sob+yob_fct+ cl6+cl7+cl8,weights=sample5080, data=child_labor)
+reg2_3_6.iv <- ivreg(lnwkwage ~ year+sob+yob_fct+indEduc|year+sob+yob_fct+ cl6+cl7+cl8, weights =sample5090, data=child_labor)
+
+robust.se2_3_4 = sqrt(diag(vcovCL(reg2_3_4.iv, cluster= ~ sob,type="HC1")))
+robust.se2_3_5 = sqrt(diag(vcovCL(reg2_3_5.iv, cluster= ~ sob,type="HC1")))
+robust.se2_3_6 = sqrt(diag(vcovCL(reg2_3_6.iv, cluster= ~ sob,type="HC1")))
+
+stargazer(reg2_3_4.iv,reg2_3_5.iv,reg2_3_6.iv,
+          dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          keep=c("indEduc"),
+          header=FALSE,
+          column.labels=c("1960-1980","1950-1980","1950-1990"),
+          se= list(robust.se2_3_4,robust.se2_3_5,robust.se2_3_6),
+          title="Table 6 : IV Estimation : SOB-CL- No State of Residence main effect", type="text"
+)
+```
+
+## Q2-4. Explanation and Comment
+
+Table 4 measures the effect of education laws (minimum number of years of study before leaving school, minimum number of years of study before employment) on individual education through linear regressions, taking into account the effect of the individual's "State of residence" variable (columns 1-4), then ignoring it (columns 5-8). 
+
+These linear regressions are performed on the variables using the ordinary least squares method. The results in columns 5 to 8 show that the greater the minimum number of years of schooling a child must have had before being allowed to work, the greater the length of schooling the individual has had. 
+
+The results are similar for variables representing the minimum number of years of study before leaving school. This table shows the positive effect of education laws on individual schooling. As children with higher levels of education are more competent, they have higher private returns. 
+
+One of the externalities of education is therefore the increase in individual returns.
+
+The table 6 reports the two stages least squares (2SLS) estimates of private returns to schooling using two different sets of instruments on three different samples. Using first the quarter of birth or rather the interaction between year of birth and quarter of birth (the dummy variables) as instrument, the private returns to schooling are estimated at 0.073; 0.09 and 0.063 for the three respective samples. 
+
+Then, estimates of private returns using CSL instruments (child labor laws) in the 1960-1980 sample are higher than those using instruments based on birth quarter, although the differences are not large or statistically significant. 
+
+The 2SLS estimate of private returns using CL6-CL8 instruments, for example, is 0.076 in column 4. Models estimated using these instruments without state of residence effects produce similar results. 
+
+CSL instruments are an important determinant of individual schooling, so in principle they can be used as
+instruments for individual schooling in wage equations. On the other hand, if there are external returns to schooling, IV estimates of private returns using SLC instruments will be biased by the correlation between the instruments and average state schooling.
+education.
+
+# Question 3. (Data Wrangling). Comparison 
+
+- __Loading of data1980 extract from IPUMS USA__
+
+```{r}
+path = "C:/Users/sedjr/Desktop/Romulus/Documents/Marrseille/Aix-Marseille School of Economy/Cours Mag 1 - Romulus 2023/Applied Econometrics - Christian Schluter/usa_00003.dat"
+ddi   <- read_ipums_ddi(paste(path,"/usa_00003.xml",sep=""))
+data1980 <- read_ipums_micro(ddi, data_file =
+                           paste(path,"/usa_00003.dat",sep=""))
+str(data1980)
+```
+
+- __Preprocessing__
+
+We have to recode age(AGE), indEduc(EDUC), lnwkwage(INCWAGE/WKSWORK1), sob(BPL), yob(BIRTHYR).
+
+```{r}
+data1980 %>%
+  filter(AGE>=40 & AGE<50,
+    BIRTHYR >= 1900 & BIRTHYR < 1950,
+         INCWAGE > 0,  WKSWORK1>0, RACE == 1 | RACE == 2) %>%
+  mutate(SAMPLE:=NULL, GQ:=NULL, RACED:=NULL,
+         RACE:=NULL,PERNUM:=NULL,STRATA:=NULL,CLUSTER:=NULL,HHWT:=NULL,PERWT:=NULL)  ->
+  data1980
+data1980 %>%
+  mutate(lnwkwage = log(INCWAGE / WKSWORK1)) %>%
+  mutate(INCWAGE:=NULL,WKSWORK1:=NULL,HIGRADE:=NULL) %>%
+  mutate(EDUC = NA) %>%
+  mutate(EDUC = ifelse(EDUCD == 14, 1, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 15, 2, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 16, 3, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 17, 4, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 22, 5, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 23, 6, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 25, 7, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 26, 8, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 30, 9, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 40, 10, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 50, 11, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 60, 12, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 65 | EDUCD == 70, 13, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 80, 14, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 90, 15, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 100, 16, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 110, 17, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 111, 18, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD == 112, 19, EDUC)) %>%
+  mutate(EDUC = ifelse(EDUCD >= 113, 20, EDUC)) %>%
+  mutate(EDUCD := NULL)%>% mutate (indEduc=EDUC, yob=BIRTHYR,sob=BPL) ->
+  data1980
+```
+
+- __Descriptive Statistics__
+
+```{r}
+
+cols <- c("AGE", "indEduc", "lnwkwage")  
+means <- sapply(data1980[, cols], mean, na.rm = TRUE)
+sds <- sapply(data1980[, cols], sd, na.rm = TRUE)
+
+summary_table <- data.frame(
+  Moyenne = means,
+  Ecart_type = sds
+)
+pander(summary_table, caption = "Moyenne et Écart-type des variables spécifiques")
+```
+
+- __Comparison of OLS result__
+
+```{r}
+data1980%>%
+mutate(year = factor(YEAR),
+       yob_fct = factor(yob),
+       sob = factor(sob)) -> data1980
+regipums.ols <- lm(lnwkwage ~ yob_fct + sob + indEduc , data=data1980)
+regaa2000.ols <- lm(lnwkwage ~ yob_fct + sob +indEduc, subset = (year==1980), data=child_labor)
+
+
+stargazer(regipums.ols,regaa2000.ols,
+          keep=c("indEduc"),dep.var.caption="",dep.var.labels="",
+          omit.table.layout = "n", star.cutoffs = NA,
+          keep.stat=c("n", "rsq"),no.space=TRUE,
+          header=FALSE,
+          column.labels=c("ipums","childlabor"),
+          title="Comparison", type="text")
+```
+
+We find almost same estimates.
+This is end of this exercise.
+Thank you sir for understanding.
+
+
